@@ -1,26 +1,18 @@
-# Ma Tournée Optimisée — V2 iPhone
+# Ma Tournée Optimisée V3 — iPhone
 
-## Installation
-1. Décompresse le ZIP.
-2. Sur GitHub, crée un dépôt (GitHub Pages nécessite un dépôt public sur le plan gratuit). Dépose **uniquement les fichiers de code** du dossier, jamais tes données clients.
-3. Settings → Pages → Deploy from a branch → main → /(root).
-4. Ouvre l’URL HTTPS dans Safari sur iPhone, puis Partager → Sur l’écran d’accueil → Ajouter.
-5. Si tu remplaces les fichiers de la V1, garde le même site et le même navigateur pour récupérer automatiquement les données locales V1. Fais une sauvegarde JSON avant mise à jour.
+## IMPORTANT : sauvegarde AVANT mise à jour
+Dans la V2, ouvre **Dépôt / Import → Sauvegarde JSON** et conserve le fichier dans Fichiers. Ne supprime pas les données Safari. La V3 utilise exactement la même clé locale `tournee_data_v2` que la V2. Le stockage de Safari et celui d’une application ajoutée à l’écran d’accueil peuvent être séparés : fais une restauration JSON si tes clients ne s’affichent pas.
 
-## Scanner les colis
-Onglet Scanner → Démarrer la caméra → autoriser la caméra. Si Safari ne prend pas en charge BarcodeDetector, saisis le code-barres dans le champ prévu. Les formats disponibles dépendent du navigateur.
-Un numéro déjà enregistré est détecté comme doublon. Pour un nouveau numéro, sélectionne un client existant ou crée une fiche ; l’application rattache alors le colis au client et sélectionne ce dernier pour la tournée. Plusieurs colis du même client partagent un arrêt.
+## Mise à jour GitHub depuis iPhone
+Ouvre le dépôt GitHub existant → Add file → Upload files. Décompresse le ZIP V3 dans Fichiers. Sélectionne les **six fichiers à l’intérieur** du dossier `ma-tournee-optimisee` et envoie-les **à la racine** du dépôt (pas le dossier entier). Valide Commit changes. Vérifie Settings → Pages → main / (root). Attends le déploiement et recharge Safari. Si l’ancienne version reste visible, ferme puis rouvre le site; le service worker V3 doit prendre le relais.
 
-**Important :** le code-barres seul ne donne généralement pas le nom ou l’adresse du destinataire. La reconnaissance automatique d’un client n’est possible qu’après association du numéro de colis à sa fiche. Il n’y a pas de connexion au système du transporteur.
+## Fonctionnement
+- Scanner : caméra via ZXing Browser chargé en ligne, nécessite HTTPS, Safari compatible et autorisation caméra. Code inconnu : choisir un client ou créer une fiche.
+- Carte : Leaflet + tuiles OpenStreetMap chargées en ligne.
+- Recherche d’adresse : Nominatim, à utiliser ponctuellement et manuellement. Vérifier l’adresse proposée avant de l’accepter. Pas de recherche automatique massive : service public limité à environ 1 requête/s et soumis à une politique d’usage.
+- GPS : position ponctuelle autorisée par l’utilisateur, utilisée comme départ de la session.
+- Route : OSRM public de démonstration, table de durées routières puis route géométrique, sans trafic. Jusqu’à 49 clients par calcul; service **non garanti pour 40+ arrêts** et peut refuser les requêtes. Si refus, l’app affiche une erreur au lieu de présenter un trajet à vol d’oiseau comme routier. Les horaires sont estimés et l’ordre est heuristique, pas un optimum garanti.
+- Sauvegarde : clients et colis restent en local. Les adresses sont transmises au service Nominatim lors d’une recherche; les coordonnées au service OSRM lors d’un calcul. Ne pas utiliser de données confidentielles sans autorisation.
 
-## Limites
-- Calcul d’itinéraire **approximatif**, à vol d’oiseau, sans réseau routier ni trafic.
-- Les adresses importées de Google Takeout peuvent nécessiter un nettoyage et des coordonnées GPS.
-- Données enregistrées **localement sur cet appareil et ce navigateur** ; pas de synchronisation entre appareils.
-- Les numéros de colis sont uniques dans la base locale. Pour réutiliser un numéro, supprime d’abord son ancien enregistrement.
-- Si plusieurs colis sont à un arrêt, le bouton « Livré » de la tournée marque tous les colis du jour de ce client comme livrés.
-- Sauvegarde régulièrement depuis Dépôt / Import → Sauvegarde JSON.
-- Ne scanne pas au volant.
-
-## Test rapide
-Crée un dépôt avec coordonnées GPS, puis un client. Dans Scanner, saisis TEST-001, associe-le au client, puis TEST-002 au même client. Dans Tournée, optimise : le client doit apparaître une seule fois avec 2 colis.
+## Limites et suite
+Le serveur OSRM de démonstration n’est pas prévu pour un usage professionnel régulier; prévoir un service routier dédié ou auto-hébergé. Les services externes nécessitent Internet et peuvent être indisponibles. Pas de trafic temps réel, pas de guidage GPS intégré, pas de lecture automatique de nom/adresse sur étiquette. Ouvrir Google Maps pour la navigation.
