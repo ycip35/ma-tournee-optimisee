@@ -3,3 +3,5 @@
 nav{overflow-x:auto}nav button{white-space:nowrap;min-width:82px}select{width:100%;padding:12px;border:1px solid #c7d3de;border-radius:8px;font-size:16px;background:white}#camera{width:100%;max-height:300px;object-fit:cover;background:#152a39;border-radius:12px;margin:8px 0}
 
 #map{height:310px;border-radius:12px;margin:12px 0;background:#e4e9eb}#camera{width:100%;max-height:340px;object-fit:cover;background:#101b25;border-radius:12px}.leaflet-container{z-index:0}button:disabled{opacity:.6}
+
+.geo-results{display:grid;gap:6px;margin:8px 0}.geo-choice{width:100%;text-align:left;background:#edf5ff;border:1px solid #bed7f6;border-radius:9px;padding:12px;color:#153b65;white-space:normal}

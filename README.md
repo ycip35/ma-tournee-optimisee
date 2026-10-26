@@ -1,18 +1,15 @@
-# Ma Tournée Optimisée V3 — iPhone
+# Ma Tournée Optimisée V3.1 — recherche Geoapify
 
-## IMPORTANT : sauvegarde AVANT mise à jour
-Dans la V2, ouvre **Dépôt / Import → Sauvegarde JSON** et conserve le fichier dans Fichiers. Ne supprime pas les données Safari. La V3 utilise exactement la même clé locale `tournee_data_v2` que la V2. Le stockage de Safari et celui d’une application ajoutée à l’écran d’accueil peuvent être séparés : fais une restauration JSON si tes clients ne s’affichent pas.
+## Installation iPhone (GitHub Pages)
+1. Garde ta sauvegarde JSON de clients et colis.
+2. Dans le dépôt GitHub existant, remplace les fichiers du site par ceux du dossier `ma-tournee-optimisee` (sans publier de données clients ni de clé).
+3. Vérifie que les nouveaux fichiers sont à la racine du dépôt, puis valide `Commit changes`.
+4. Attends la publication GitHub Pages, ouvre Safari et actualise. Si l'ancienne version reste affichée, ferme/réouvre l'application.
+5. Dans **Dépôt / Import**, colle la clé Geoapify dans le champ prévu, puis touche **Activer la recherche**.
+6. Dans **Clients**, tape un nom d'entreprise et une ville dans le champ Adresse. Choisis un résultat, puis enregistre le client.
 
-## Mise à jour GitHub depuis iPhone
-Ouvre le dépôt GitHub existant → Add file → Upload files. Décompresse le ZIP V3 dans Fichiers. Sélectionne les **six fichiers à l’intérieur** du dossier `ma-tournee-optimisee` et envoie-les **à la racine** du dépôt (pas le dossier entier). Valide Commit changes. Vérifie Settings → Pages → main / (root). Attends le déploiement et recharge Safari. Si l’ancienne version reste visible, ferme puis rouvre le site; le service worker V3 doit prendre le relais.
-
-## Fonctionnement
-- Scanner : caméra via ZXing Browser chargé en ligne, nécessite HTTPS, Safari compatible et autorisation caméra. Code inconnu : choisir un client ou créer une fiche.
-- Carte : Leaflet + tuiles OpenStreetMap chargées en ligne.
-- Recherche d’adresse : Nominatim, à utiliser ponctuellement et manuellement. Vérifier l’adresse proposée avant de l’accepter. Pas de recherche automatique massive : service public limité à environ 1 requête/s et soumis à une politique d’usage.
-- GPS : position ponctuelle autorisée par l’utilisateur, utilisée comme départ de la session.
-- Route : OSRM public de démonstration, table de durées routières puis route géométrique, sans trafic. Jusqu’à 49 clients par calcul; service **non garanti pour 40+ arrêts** et peut refuser les requêtes. Si refus, l’app affiche une erreur au lieu de présenter un trajet à vol d’oiseau comme routier. Les horaires sont estimés et l’ordre est heuristique, pas un optimum garanti.
-- Sauvegarde : clients et colis restent en local. Les adresses sont transmises au service Nominatim lors d’une recherche; les coordonnées au service OSRM lors d’un calcul. Ne pas utiliser de données confidentielles sans autorisation.
-
-## Limites et suite
-Le serveur OSRM de démonstration n’est pas prévu pour un usage professionnel régulier; prévoir un service routier dédié ou auto-hébergé. Les services externes nécessitent Internet et peuvent être indisponibles. Pas de trafic temps réel, pas de guidage GPS intégré, pas de lecture automatique de nom/adresse sur étiquette. Ouvrir Google Maps pour la navigation.
+## Important
+- Ne colle JAMAIS ta clé dans `app.js` ou dans un dépôt public. Le champ de cette version conserve la clé dans le stockage local du navigateur, pas dans GitHub. Une clé utilisée depuis un navigateur reste néanmoins exposée aux outils de développement et aux requêtes réseau : restreins les domaines autorisés et les quotas depuis Geoapify, ou utilise un proxy serveur pour une protection plus robuste.
+- Les données de tournée existantes utilisent la même clé `tournee_data_v2` dans le stockage local : aucune migration ni effacement automatique. Une sauvegarde reste indispensable.
+- Les résultats de recherche peuvent être incomplets. Vérifie l'entreprise et son emplacement sur la carte avant de livrer.
+- Le routage OSRM public reste un service de démonstration, sans garantie de disponibilité pour 40+ arrêts.
