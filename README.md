@@ -13,3 +13,6 @@
 - Les données de tournée existantes utilisent la même clé `tournee_data_v2` dans le stockage local : aucune migration ni effacement automatique. Une sauvegarde reste indispensable.
 - Les résultats de recherche peuvent être incomplets. Vérifie l'entreprise et son emplacement sur la carte avant de livrer.
 - Le routage OSRM public reste un service de démonstration, sans garantie de disponibilité pour 40+ arrêts.
+
+
+V3.3 : suggestions pendant la saisie du nom d’entreprise et de l’adresse. La recherche par nom repose sur Geoapify Geocoding Search : tous les établissements ne sont pas nécessairement référencés. Clé saisie uniquement dans l’application, non incluse dans le code.
