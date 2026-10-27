@@ -35,11 +35,63 @@ return {ordered,missing,dist,warning:null}}
 let lastRoute=null, currentPosition=null;
 async function getJSON(url){const r=await fetch(url);if(!r.ok)throw Error('Service indisponible ('+r.status+')');return r.json()}
 async function roadRoute(points){const coords=points.map(p=>p.lng+','+p.lat).join(';');const data=await getJSON('https://router.project-osrm.org/route/v1/driving/'+coords+'?overview=false&steps=false');if(data.code!=='Ok'||!data.routes?.[0])throw Error('Aucun itinéraire routier trouvé');return data.routes[0]}
-async function roadTable(points){const coords=points.map(p=>p.lng+','+p.lat).join(';');const data=await getJSON('https://router.project-osrm.org/table/v1/driving/'+coords+'?annotations=duration,distance');if(data.code!=='Ok'||!data.durations||!data.distances)throw Error('Matrice routière indisponible');return data}
-async function planRoad(){const selected=state.clients.filter(c=>(c.selected||activeParcels(c.id).length||pendingOperation(c.id))&&!state.delivered.includes(c.id));const origin=state.depot;if(!coord(origin))throw Error('Définis les coordonnées GPS du dépôt dans Dépôt / Import.');const missing=selected.filter(c=>!coord(c)),ready=selected.filter(coord);if(!ready.length)throw Error('Aucun client avec coordonnées GPS. Recherche leurs adresses dans Clients.');if(ready.length>49)throw Error('Cette version accepte au maximum 49 arrêts routiers à la fois. Découpe ta tournée en deux groupes.');const points=[origin,...ready],matrix=await roadTable(points);let remaining=ready.map((c,i)=>({c,index:i+1})),at=0,time=minutes($('departure').value),ordered=[];while(remaining.length){let best=null;for(const item of remaining){const duration=matrix.durations[at]?.[item.index],distance=matrix.distances[at]?.[item.index];if(!Number.isFinite(duration)||!Number.isFinite(distance))continue;const travel=Math.ceil(duration/60),arrival=time+travel,start=Math.max(arrival,minutes(item.c.open)),late=start+Number(item.c.service)>minutes(item.c.close),rank=(late?100000:0)+Math.max(0,start+Number(item.c.service)-minutes(item.c.close))*1000+start*.03+distance/1000;if(!best||rank<best.rank)best={...item,travel,arrival,start,late,rank,d:distance/1000}}if(!best)throw Error('Certains clients sont inaccessibles par la route.');remaining=remaining.filter(x=>x!==best);time=best.start+Number(best.c.service);ordered.push({...best,finish:time});at=best.index}
-const returnSeconds=matrix.durations[at]?.[0],returnMeters=matrix.distances[at]?.[0];if(!Number.isFinite(returnSeconds)||!Number.isFinite(returnMeters))throw Error('Retour au dépôt impossible par la route.');const r=await roadRoute([origin,...ordered.map(x=>x.c),origin]);return {ordered,missing,route:r,returnKm:returnMeters/1000,returnMinutes:Math.ceil(returnSeconds/60),returnAt:time+Math.ceil(returnSeconds/60)};}
-function displayRoad(result){lastRoute=result;const {ordered,missing,route:r,returnKm,returnMinutes,returnAt}=result;let html=`<p><strong>${ordered.length} arrêts • ${(r.distance/1000).toFixed(1)} km sur route • ${Math.round(r.duration/60)} min de conduite (hors arrêts)</strong></p><p class="hint">Sans trafic temps réel. Vérifie les horaires : une fermeture signalée peut rendre la tournée impossible.</p>`;ordered.forEach((s,i)=>{const c=s.c;html+=`<div class="item"><strong>${i+1}. ${esc(c.name)} <span class="badge">${clock(s.start)}</span></strong><div class="meta">${esc(c.address)} • 📦 ${activeParcels(c.id).length} scanné(s) • ${operationSummary(c.id)}<br>Arrivée ${clock(s.arrival)} • Fin ${clock(s.finish)} • Ferme à ${esc(c.close)} • ${s.d.toFixed(1)} km par route</div>${s.late?'<p class="warn">⚠️ Horaire de fermeture non respecté</p>':''}<div class="actions"><a href="${esc(nav(c))}" target="_blank" rel="noopener">Naviguer</a><button data-delivered="${esc(c.id)}">Valider livraison / ramassage ✓</button></div></div>`});html+=`<div class="item"><strong>🏠 Retour au dépôt — ${esc(state.depot.name||'Dépôt')}</strong><div class="meta">${returnKm.toFixed(1)} km par route • ${returnMinutes} min • Retour estimé à ${clock(returnAt)}</div></div>`;if(missing.length)html+=`<p class="warn">${missing.length} adresse(s) sans GPS, non incluses dans la tournée. Recherche-les dans Clients.</p>`;$('route').innerHTML=html;}
-$('optimize').onclick=async()=>{const b=$('optimize');b.disabled=true;$('routeStatus').textContent='Calcul des distances sur route…';try{const result=await planRoad();displayRoad(result);$('routeStatus').textContent='Itinéraire routier calculé (sans trafic).'}catch(e){$('routeStatus').textContent='Impossible de calculer : '+e.message;$('route').innerHTML='<p class="warn">Aucun calcul routier disponible. Réessaie plus tard ou utilise Google Maps pour naviguer.</p>'}finally{b.disabled=false}};
+async function roadTable(points){
+ const coords=points.map(p=>p.lng+','+p.lat).join(';');
+ const controller=new AbortController();
+ const timeout=setTimeout(()=>controller.abort(),20000);
+ try{
+  const response=await fetch('https://router.project-osrm.org/table/v1/driving/'+coords+'?annotations=duration,distance',{signal:controller.signal,cache:'no-store'});
+  if(!response.ok)throw Error('Service routier indisponible (HTTP '+response.status+').');
+  const data=await response.json();
+  if(data.code!=='Ok'||!Array.isArray(data.durations)||!Array.isArray(data.distances))throw Error('Distances routières indisponibles.');
+  return data;
+ }catch(e){if(e.name==='AbortError')throw Error('Le calcul a dépassé 20 secondes. Réessaie avec moins de clients sélectionnés.');throw e}
+ finally{clearTimeout(timeout)}
+}
+async function planRoad(){
+ const selected=state.clients.filter(c=>(c.selected||activeParcels(c.id).length||pendingOperation(c.id))&&!state.delivered.includes(c.id));
+ const origin=state.depot;
+ if(!coord(origin))throw Error('Définis les coordonnées GPS du dépôt dans Dépôt / Import.');
+ const missing=selected.filter(c=>!coord(c)),ready=selected.filter(coord);
+ if(!ready.length)throw Error('Aucun client avec coordonnées GPS. Recherche leurs adresses dans Clients.');
+ if(ready.length>49)throw Error('Maximum 49 arrêts par calcul. Sélectionne moins de clients.');
+ const matrix=await roadTable([origin,...ready]);
+ let remaining=ready.map((c,i)=>({c,index:i+1})),at=0,time=minutes($('departure').value),ordered=[],totalMeters=0,totalSeconds=0;
+ while(remaining.length){
+  let best=null;
+  for(const item of remaining){
+   const duration=matrix.durations[at]?.[item.index],distance=matrix.distances[at]?.[item.index];
+   if(!Number.isFinite(duration)||!Number.isFinite(distance))continue;
+   const travel=Math.ceil(duration/60),arrival=time+travel,start=Math.max(arrival,minutes(item.c.open)),late=start+Number(item.c.service)>minutes(item.c.close);
+   const rank=(late?100000:0)+Math.max(0,start+Number(item.c.service)-minutes(item.c.close))*1000+start*.03+distance/1000;
+   if(!best||rank<best.rank)best={...item,travel,arrival,start,late,rank,d:distance/1000,meters:distance,seconds:duration};
+  }
+  if(!best)throw Error('Certains clients sont inaccessibles par la route.');
+  remaining=remaining.filter(x=>x!==best);
+  totalMeters+=best.meters;totalSeconds+=best.seconds;
+  time=best.start+Number(best.c.service);ordered.push({...best,finish:time});at=best.index;
+ }
+ const returnSeconds=matrix.durations[at]?.[0],returnMeters=matrix.distances[at]?.[0];
+ if(!Number.isFinite(returnSeconds)||!Number.isFinite(returnMeters))throw Error('Retour au dépôt impossible par la route.');
+ totalMeters+=returnMeters;totalSeconds+=returnSeconds;
+ return {ordered,missing,totalKm:totalMeters/1000,totalDriveMinutes:Math.ceil(totalSeconds/60),returnKm:returnMeters/1000,returnMinutes:Math.ceil(returnSeconds/60),returnAt:time+Math.ceil(returnSeconds/60)};
+}
+function displayRoad(result){
+ lastRoute=result;
+ const {ordered,missing,totalKm,totalDriveMinutes,returnKm,returnMinutes,returnAt}=result;
+ let html=`<p><strong>${ordered.length} arrêts • ${totalKm.toFixed(1)} km sur route (retour compris) • ${totalDriveMinutes} min de conduite estimée (hors arrêts)</strong></p><p class="hint">Calcul indicatif sans trafic, d'après les distances routières. Respecte les règles de circulation et vérifie les horaires.</p>`;
+ ordered.forEach((s,i)=>{const c=s.c;html+=`<div class="item"><strong>${i+1}. ${esc(c.name)} <span class="badge">${clock(s.start)}</span></strong><div class="meta">${esc(c.address)} • 📦 ${activeParcels(c.id).length} scanné(s) • ${operationSummary(c.id)}<br>Arrivée ${clock(s.arrival)} • Fin ${clock(s.finish)} • Ferme à ${esc(c.close)} • ${s.d.toFixed(1)} km par route</div>${s.late?'<p class="warn">⚠️ Horaire de fermeture non respecté</p>':''}<div class="actions"><a href="${esc(nav(c))}" target="_blank" rel="noopener">Naviguer</a><button data-delivered="${esc(c.id)}">Valider livraison / ramassage ✓</button></div></div>`});
+ html+=`<div class="item"><strong>🏠 Retour au dépôt — ${esc(state.depot.name||'Dépôt')}</strong><div class="meta">${returnKm.toFixed(1)} km par route • ${returnMinutes} min • Retour estimé à ${clock(returnAt)}</div></div>`;
+ if(missing.length)html+=`<p class="warn">${missing.length} adresse(s) sans GPS, non incluses dans la tournée. Recherche-les dans Clients.</p>`;
+ $('route').innerHTML=html;
+}
+$('optimize').onclick=async()=>{
+ const b=$('optimize');if(b.disabled)return;
+ b.disabled=true;$('routeStatus').textContent='Calcul des distances routières (20 secondes maximum)…';
+ try{const result=await planRoad();displayRoad(result);$('routeStatus').textContent='Tournée calculée, retour au dépôt inclus.'}
+ catch(e){$('routeStatus').textContent='Impossible de calculer : '+(e?.message||'erreur inconnue');$('route').innerHTML='<p class="warn">Aucune tournée routière disponible. Vérifie les coordonnées GPS et réessaie avec moins d’arrêts.</p>'}
+ finally{b.disabled=false}
+};
 $('locate').onclick=()=>{if(!navigator.geolocation){$('routeStatus').textContent='GPS non disponible';return}navigator.geolocation.getCurrentPosition(p=>{currentPosition={lat:p.coords.latitude,lng:p.coords.longitude};$('routeStatus').textContent='Position GPS détectée. Le calcul de la tournée part toujours du dépôt enregistré.'},e=>$('routeStatus').textContent='GPS : '+e.message,{enableHighAccuracy:true,timeout:15000})};
 // V3.1 : clé saisie dans l'app, jamais dans les fichiers GitHub publics.
 const GEO_KEY_STORAGE='tournee_geoapify_key';
